@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>会員登録PoC</title>
+    <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    <style>
+        body { padding: 20px; font-family: sans-serif; }
+        input, select, button { width: 100%; padding: 10px; margin-bottom: 15px; box-sizing: border-box; }
+        button { background-color: #06C755; color: white; border: none; border-radius: 5px; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <h2>会員登録フォーム</h2>
+    <p>LINE IDを自動取得して登録します。</p>
+
+    <label>お名前</label>
+    <input type="text" id="name" placeholder="山田 太郎">
+
+    <label>利用OS</label>
+    <select id="os">
+        <option value="Windows 10">Windows 10</option>
+        <option value="Windows 11">Windows 11</option>
+        <option value="Mac">Mac</option>
+    </select>
+
+    <button onclick="register()">登録する</button>
+
+    <script>
+        // ★設定エリア
+        const LIFF_ID = '★あなたのLIFF ID★'; 
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbxwg9oUDlm-tv5Ha4lwNXT700iDbsEucrBXUofWucYecybKSPxtjuGGkzv9ZJjORf_new/exec';
+
+        // LIFF初期化
+        liff.init({ liffId: LIFF_ID }).then(() => {
+            if (!liff.isLoggedIn()) {
+                liff.login();
+            }
+        });
+
+        function register() {
+            // ユーザー情報の取得
+            liff.getProfile().then(profile => {
+                const userId = profile.userId; // これがLINE ID (U1234...)
+                const name = document.getElementById('name').value;
+                const os = document.getElementById('os').value;
+
+                // GASへ送信
+                fetch(GAS_URL, {
+                    method: 'POST',
+                    mode: 'no-cors', // GASへの送信時はこれが必須
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ userId: userId, name: name, os: os })
+                }).then(() => {
+                    alert('登録完了！\nDBを確認してください');
+                    liff.closeWindow();
+                }).catch(err => {
+                    alert('エラー: ' + err);
+                });
+            });
+        }
+    </script>
+</body>
+</html>
