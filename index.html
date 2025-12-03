@@ -3,62 +3,113 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>会員登録PoC</title>
+    <title>会員証PoC</title>
     <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
     <style>
-        body { padding: 20px; font-family: sans-serif; }
+        body { padding: 20px; font-family: sans-serif; text-align: center; }
+        /* 最初は両方隠しておく */
+        #loading { display: block; }
+        #register-section { display: none; }
+        #card-section { display: none; }
+        
         input, select, button { width: 100%; padding: 10px; margin-bottom: 15px; box-sizing: border-box; }
-        button { background-color: #06C755; color: white; border: none; border-radius: 5px; font-weight: bold; }
+        button { background-color: #06C755; color: white; border: none; border-radius: 5px; font-weight: bold; font-size: 16px; }
+        
+        /* 会員証のデザイン */
+        .card { border: 2px solid #06C755; border-radius: 10px; padding: 20px; background: #f0fdf4; }
+        .member-id { font-size: 2em; font-weight: bold; color: #333; margin: 10px 0; }
     </style>
 </head>
 <body>
-    <h2>会員登録フォーム</h2>
-    <p>LINE IDを自動取得して登録します。</p>
 
-    <label>お名前</label>
-    <input type="text" id="name" placeholder="山田 太郎">
+    <div id="loading">確認中...</div>
 
-    <label>利用OS</label>
-    <select id="os">
-        <option value="Windows 10">Windows 10</option>
-        <option value="Windows 11">Windows 11</option>
-        <option value="Mac">Mac</option>
-    </select>
+    <div id="register-section">
+        <h2>会員登録</h2>
+        <p>登録して会員証を発行しよう！</p>
+        <input type="text" id="name" placeholder="お名前">
+        <select id="os">
+            <option value="Windows 10">Windows 10</option>
+            <option value="Windows 11">Windows 11</option>
+            <option value="Mac">Mac</option>
+        </select>
+        <button onclick="register()">登録する</button>
+    </div>
 
-    <button onclick="register()">登録する</button>
+    <div id="card-section">
+        <h2>デジタル会員証</h2>
+        <div class="card">
+            <p>MEMBERSHIP CARD</p>
+            <div class="member-id" id="display-id">M------</div>
+            <p id="display-name">様</p>
+        </div>
+        <p>いつもご利用ありがとうございます。</p>
+    </div>
 
     <script>
-        // ★設定エリア
+        // ★ここだけ書き換えてください
         const LIFF_ID = '★あなたのLIFF ID★'; 
-        const GAS_URL = 'https://script.google.com/macros/s/AKfycbxwg9oUDlm-tv5Ha4lwNXT700iDbsEucrBXUofWucYecybKSPxtjuGGkzv9ZJjORf_new/exec';
+        const GAS_URL = 'https://script.google.com/macros/s/AKfycbxyi4aaNObGGaBjjTFpzSXKE2OsFW17U83WAbI0vytacuvmBaBsBFuK_o2o9m4zjgwXDQ/exec';
 
         // LIFF初期化
         liff.init({ liffId: LIFF_ID }).then(() => {
             if (!liff.isLoggedIn()) {
                 liff.login();
+            } else {
+                checkStatus(); // ログイン済みなら会員チェックへ
             }
         });
 
-        function register() {
-            // ユーザー情報の取得
+        // 会員かどうかチェックする関数
+        function checkStatus() {
             liff.getProfile().then(profile => {
-                const userId = profile.userId; // これがLINE ID (U1234...)
+                const userId = profile.userId;
+                
+                // GASに「この人会員？」と聞く (doGet)
+                fetch(GAS_URL + '?userId=' + userId)
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('loading').style.display = 'none'; // ロード消す
+
+                    if (data.registered) {
+                        // 会員ならカードを表示
+                        showCard(data.memberId, data.name);
+                    } else {
+                        // 未会員なら登録フォームを表示
+                        document.getElementById('register-section').style.display = 'block';
+                    }
+                });
+            });
+        }
+
+        // 登録処理
+        function register() {
+            document.getElementById('loading').style.display = 'block'; // ロード表示
+            
+            liff.getProfile().then(profile => {
+                const userId = profile.userId;
                 const name = document.getElementById('name').value;
                 const os = document.getElementById('os').value;
 
-                // GASへ送信
                 fetch(GAS_URL, {
                     method: 'POST',
-                    mode: 'no-cors', // GASへの送信時はこれが必須
+                    mode: 'no-cors',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ userId: userId, name: name, os: os })
                 }).then(() => {
-                    alert('登録完了！\nDBを確認してください');
-                    liff.closeWindow();
-                }).catch(err => {
-                    alert('エラー: ' + err);
+                    // 登録成功したら、すぐにカード画面に切り替えるリロード
+                    alert('登録完了！会員証を発行します。');
+                    location.reload(); 
                 });
             });
+        }
+
+        // カード画面を表示する関数
+        function showCard(id, name) {
+            document.getElementById('register-section').style.display = 'none';
+            document.getElementById('card-section').style.display = 'block';
+            document.getElementById('display-id').innerText = id;
+            document.getElementById('display-name').innerText = name + ' 様';
         }
     </script>
 </body>
